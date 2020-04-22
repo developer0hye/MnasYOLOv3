@@ -196,6 +196,7 @@ class MnasYOLOv3(nn.Module):
                  bbox_w=2.0,
                  obj_pos_w=5.0,
                  obj_neg_w=1.0):
+
         p_bbox_xy = preds[..., [0, 1]]
         p_bbox_wh = preds[..., [2, 3]]
         p_obj = preds[..., 4]
@@ -214,12 +215,13 @@ class MnasYOLOv3(nn.Module):
         loss_xy = bbox_w * torch.mean(torch.sum(torch.sum(loss_xy_func(p_bbox_xy, t_bbox_xy), 2) * t_obj, 1))
         loss_wh = bbox_w * torch.mean(torch.sum(torch.sum(loss_wh_func(p_bbox_wh, t_bbox_wh), 2) * t_obj, 1))
 
-        loss_obj = loss_obj_func(p_obj, t_obj)
-        loss_obj_pos = obj_pos_w*torch.mean(torch.sum(loss_obj * t_obj, 1))
-        loss_obj_neg = obj_neg_w*torch.mean(torch.sum(loss_obj * (1. - t_obj), 1))
+        t_obj_pos = t_obj
+        t_obj_neg = 1. - t_obj
 
-        loss_class = torch.mean(torch.sum(torch.sum(loss_class_func(p_class, t_class), 2) * t_obj, 1)) \
+        loss_obj_pos = obj_pos_w*torch.mean(torch.sum(loss_obj_func(p_obj*t_obj_pos, t_obj_pos), 1))
+        loss_obj_neg = obj_neg_w*torch.mean(torch.sum(loss_obj_func(p_obj*t_obj_neg, t_obj_neg), 1))
 
+        loss_class = torch.mean(torch.sum(torch.sum(loss_class_func(p_class, t_class), 2) * t_obj, 1))
         if self.num_classes < 1:
             loss_class = torch.tensor(0.)
 
