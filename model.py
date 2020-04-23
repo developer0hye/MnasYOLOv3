@@ -6,13 +6,7 @@ import torchvision.models as models
 
 import numpy as np
 
-def xywh2xyxy(box_xywh):
-    box_xyxy = box_xywh.clone()
-    box_xyxy[:, 0] = box_xywh[:, 0] - box_xywh[:, 2] / 2.
-    box_xyxy[:, 1] = box_xywh[:, 1] - box_xywh[:, 3] / 2.
-    box_xyxy[:, 2] = box_xywh[:, 0] + box_xywh[:, 2] / 2.
-    box_xyxy[:, 3] = box_xywh[:, 1] + box_xywh[:, 3] / 2.
-    return box_xyxy
+import tools
 
 class YOLO(nn.Module):
     def __init__(self, num_classes, anchors_wh=None):
@@ -33,6 +27,9 @@ class YOLO(nn.Module):
         anchors_wh = self.anchors_wh.view(1, 1, 1, self.num_anchors, 2).to(x.device)
 
         x[..., [0, 1]] = grid_xy + torch.sigmoid(x[..., [0, 1]])
+        x[..., 0] = x[..., 0] / w
+        x[..., 1] = x[..., 1] / h
+
         x[..., [2, 3]] = anchors_wh * torch.exp(x[..., [2, 3]])
         x[..., 4] = torch.sigmoid(x[..., 4])
         x[..., 5:] = torch.sigmoid(x[..., 5:]) if self.num_classes > 1 else 1.0
@@ -155,40 +152,49 @@ class MnasYOLOv3(nn.Module):
         if self.training:
             return pred_all_yolo_layer_inputs, pred_all_xywhoc_bboxes
         else:
-            pred_all_xyxy_bboxes = xywh2xyxy(pred_all_xywhoc_bboxes[..., :4])
-            pred_all_o = pred_all_xywhoc_bboxes[..., 4]
-            pred_all_c_conf, pred_all_c_idx = torch.max(pred_all_xywhoc_bboxes[..., 5:], dim=2)
-            pred_all_oc_conf = pred_all_o * pred_all_c_conf
+            with torch.no_grad():
+                pred_all_xyxy_bboxes = tools.xywh2xyxy(pred_all_xywhoc_bboxes[..., :4])
+                pred_all_o = pred_all_xywhoc_bboxes[..., 4]
+                pred_all_c_conf, pred_all_c_idx = torch.max(pred_all_xywhoc_bboxes[..., 5:], dim=2)
+                pred_all_oc_conf = pred_all_o * pred_all_c_conf
 
-            oc_conf_thresh = 0.5
-            keep_bboxes = pred_all_oc_conf > oc_conf_thresh
+                oc_conf_thresh = 0.5
+                keep_bboxes = pred_all_oc_conf > oc_conf_thresh
 
-            pred_all_xyxy_bboxes = pred_all_xyxy_bboxes[keep_bboxes]
-            pred_all_oc_conf = pred_all_oc_conf[keep_bboxes]
-            pred_all_c_idx = pred_all_c_idx[keep_bboxes]
+                pred_all_xyxy_bboxes = pred_all_xyxy_bboxes[keep_bboxes]
+                pred_all_oc_conf = pred_all_oc_conf[keep_bboxes]
+                pred_all_c_idx = pred_all_c_idx[keep_bboxes]
 
-            nms_iou_thresh = 0.5
-            nms_pred_all_xyxy_bboxes = []
-            nms_pred_all_oc_conf = []
-            nms_pred_all_c_idx = []
-            for c_idx in range(self.num_classes):
-                c_inds = pred_all_c_idx[:] == c_idx
+                nms_iou_thresh = 0.5
+                nms_pred_all_xyxy_bboxes = []
+                nms_pred_all_oc_conf = []
+                nms_pred_all_c_idx = []
 
-                pred_c_all_xyxy_bboxes = pred_all_xyxy_bboxes[c_inds]
-                pred_c_all_oc_conf = pred_all_oc_conf[c_inds]
-                pred_c_all_c_idx = pred_all_c_idx[c_inds]
+                for c_idx in range(self.num_classes):
+                    c_inds = pred_all_c_idx[:] == c_idx
 
-                keep_bboxes = ops.nms(pred_c_all_xyxy_bboxes, pred_c_all_oc_conf, nms_iou_thresh)
+                    pred_c_all_xyxy_bboxes = pred_all_xyxy_bboxes[c_inds]
+                    pred_c_all_oc_conf = pred_all_oc_conf[c_inds]
+                    pred_c_all_c_idx = pred_all_c_idx[c_inds]
 
-                nms_pred_all_xyxy_bboxes.append(pred_c_all_xyxy_bboxes[keep_bboxes])
-                nms_pred_all_oc_conf.append(pred_c_all_oc_conf[keep_bboxes])
-                nms_pred_all_c_idx.append(pred_c_all_c_idx[keep_bboxes])
+                    keep_bboxes = ops.nms(pred_c_all_xyxy_bboxes, pred_c_all_oc_conf, nms_iou_thresh)
 
-            nms_pred_all_xyxy_bboxes = torch.cat(nms_pred_all_xyxy_bboxes, 0)
-            nms_pred_all_oc_conf = torch.cat(nms_pred_all_oc_conf, 0)
-            nms_pred_all_c_idx = torch.cat(nms_pred_all_c_idx, 0)
-            
-            return pred_all_yolo_layer_inputs, nms_pred_all_xyxy_bboxes, nms_pred_all_oc_conf, nms_pred_all_c_idx
+                    nms_pred_all_xyxy_bboxes.append(pred_c_all_xyxy_bboxes[keep_bboxes])
+                    nms_pred_all_oc_conf.append(pred_c_all_oc_conf[keep_bboxes])
+                    nms_pred_all_c_idx.append(pred_c_all_c_idx[keep_bboxes])
+
+                nms_pred_all_xyxy_bboxes = torch.cat(nms_pred_all_xyxy_bboxes, 0)
+                nms_pred_all_oc_conf = torch.cat(nms_pred_all_oc_conf, 0)
+                nms_pred_all_c_idx = torch.cat(nms_pred_all_c_idx, 0)
+
+                nms_pred_all_xyxy_bboxes = nms_pred_all_xyxy_bboxes.to('cpu').numpy()
+                nms_pred_all_oc_conf = nms_pred_all_oc_conf.to('cpu').numpy()
+                nms_pred_all_c_idx = nms_pred_all_c_idx.to('cpu').numpy()
+
+                return pred_all_yolo_layer_inputs,\
+                       nms_pred_all_xyxy_bboxes,\
+                       nms_pred_all_oc_conf, \
+                       nms_pred_all_c_idx
 
     def yololoss(self,
                  preds,
@@ -218,11 +224,11 @@ class MnasYOLOv3(nn.Module):
         t_obj_pos = t_obj
         t_obj_neg = 1. - t_obj
 
-        loss_obj_pos = obj_pos_w*torch.mean(torch.sum(loss_obj_func(p_obj*t_obj_pos, t_obj_pos), 1))
-        loss_obj_neg = obj_neg_w*torch.mean(torch.sum(loss_obj_func(p_obj*t_obj_neg, t_obj_neg), 1))
+        loss_obj_pos = obj_pos_w * torch.mean(torch.sum(loss_obj_func(p_obj, t_obj)*t_obj_pos, 1))
+        loss_obj_neg = obj_neg_w * torch.mean(torch.sum(loss_obj_func(p_obj, t_obj)*t_obj_neg, 1))
 
         loss_class = torch.mean(torch.sum(torch.sum(loss_class_func(p_class, t_class), 2) * t_obj, 1))
-        if self.num_classes < 1:
+        if self.num_classes <= 1:
             loss_class = torch.tensor(0.)
 
         loss = loss_xy + loss_wh + loss_obj_pos + loss_obj_neg + loss_class
@@ -260,16 +266,21 @@ if __name__ == '__main__':
     lr = 1e-5
 
     optimizer = torch.optim.SGD(model.parameters(), lr=lr, momentum=0.9)
-    import tools
+
     
     for epoch in range(epochs):
         model.train()
 
         pred_all_yolo_layer_inputs, pred_all_xywhoc_bboxes = model(img)
-        targets = tools.build_targets(model, pred_all_yolo_layer_inputs, bboxes_label_list, input_size)
+
+        targets = tools.build_targets(model,
+                                      bboxes_label_list,
+                                      batch_size=1,
+                                      input_size=(416, 416),
+                                      dtype=img.dtype)
         targets = targets.to(device)
 
-        loss = yololoss(model, pred_all_yolo_layer_inputs, targets)
+        loss = model.yololoss(pred_all_yolo_layer_inputs, targets)
         print(loss)
 
         optimizer.zero_grad()
