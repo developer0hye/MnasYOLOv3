@@ -42,19 +42,19 @@ class LRScheduler(object):
 
 def xywh2xyxy(box_xywh):
     box_xyxy = box_xywh.clone()
-    box_xyxy[:, 0] = box_xywh[:, 0] - box_xywh[:, 2] / 2.
-    box_xyxy[:, 1] = box_xywh[:, 1] - box_xywh[:, 3] / 2.
-    box_xyxy[:, 2] = box_xywh[:, 0] + box_xywh[:, 2] / 2.
-    box_xyxy[:, 3] = box_xywh[:, 1] + box_xywh[:, 3] / 2.
+    box_xyxy[..., 0] = box_xywh[..., 0] - box_xywh[..., 2] / 2.
+    box_xyxy[..., 1] = box_xywh[..., 1] - box_xywh[..., 3] / 2.
+    box_xyxy[..., 2] = box_xywh[..., 0] + box_xywh[..., 2] / 2.
+    box_xyxy[..., 3] = box_xywh[..., 1] + box_xywh[..., 3] / 2.
     return box_xyxy
 
 
 def xyxy2xywh(box_xyxy):
     box_xywh = box_xyxy.clone()
-    box_xywh[:, 0] = (box_xyxy[:, 0] + box_xyxy[:, 2]) / 2.
-    box_xywh[:, 1] = (box_xyxy[:, 1] + box_xyxy[:, 3]) / 2.
-    box_xywh[:, 2] = box_xyxy[:, 2] - box_xyxy[:, 0]
-    box_xywh[:, 3] = box_xyxy[:, 3] - box_xyxy[:, 1]
+    box_xywh[..., 0] = (box_xyxy[..., 0] + box_xyxy[..., 2]) / 2.
+    box_xywh[..., 1] = (box_xyxy[..., 1] + box_xyxy[..., 3]) / 2.
+    box_xywh[..., 2] = box_xyxy[..., 2] - box_xyxy[..., 0]
+    box_xywh[..., 3] = box_xyxy[..., 3] - box_xyxy[..., 1]
     return box_xywh
 
 def iou_xyxy(boxA_xyxy, boxB_xyxy):
@@ -119,8 +119,8 @@ def build_targets(model,
     for idx_batch in range(batch_size):
         for bbox_label in bboxes_label_list[idx_batch]:
             c = int(bbox_label[0])
-            x, y = bbox_label[[1, 2]]
-            w, h = bbox_label[[3, 4]]
+            bbox_x, bbox_y = bbox_label[[1, 2]]
+            bbox_w, bbox_h = bbox_label[[3, 4]]
 
             bbox_xywh = bbox_label[1:].view(1, -1)
 
@@ -133,7 +133,7 @@ def build_targets(model,
             for idx_layer, yolo_layer in enumerate(model.yolo_layers):
                 anchor_wh = yolo_layer.anchors_wh
 
-                iou = whiou(bbox_xywh[:, [2, 3]], anchor_wh)
+                iou = whiou(bbox_xywh[:, 2:], anchor_wh)
                 iou, idx_iou = torch.max(iou, dim=-1)
 
                 if iou > best_iou:
@@ -142,13 +142,19 @@ def build_targets(model,
                     best_idx_iou = idx_iou
                     best_anchor = anchor_wh[best_idx_iou]
 
-            idx_x = int(x)
-            idx_y = int(y)
+            grid_w = w // model.strides[best_idx_layer]
+            grid_h = h // model.strides[best_idx_layer]
 
-            tx = x-idx_x
-            ty = y-idx_y
-            tw = torch.log(w/best_anchor[0, 0])
-            th = torch.log(h/best_anchor[0, 1])
+            bbox_x_on_grid = bbox_x * grid_w
+            bbox_y_on_grid = bbox_y * grid_h
+
+            idx_x = int(bbox_x_on_grid)
+            idx_y = int(bbox_y_on_grid)
+
+            tx = bbox_x_on_grid-idx_x
+            ty = bbox_y_on_grid-idx_y
+            tw = torch.log(bbox_w/best_anchor[0, 0])
+            th = torch.log(bbox_h/best_anchor[0, 1])
 
             targets[best_idx_layer][idx_batch, idx_y, idx_x, best_idx_iou, [0, 1, 2, 3]] = torch.tensor([tx, ty, tw, th])
             targets[best_idx_layer][idx_batch, idx_y, idx_x, best_idx_iou, 4] = 1.0
@@ -156,6 +162,7 @@ def build_targets(model,
 
     for i in range(len(targets)):
         targets[i] = targets[i].view(batch_size, -1, o)
+
     targets = torch.cat(targets, dim=1)
 
     return targets
