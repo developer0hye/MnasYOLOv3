@@ -209,7 +209,6 @@ class VOCDetection(data.Dataset):
 
             # to rgb
             img = img[:, :, (2, 1, 0)]
-            # img = img.transpose(2, 0, 1)
             img = torch.from_numpy(img).permute(2, 0, 1)
             img = img / 255.
             img = self.normalize(img)
