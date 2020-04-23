@@ -205,7 +205,7 @@ class MnasYOLOv3(nn.Module):
 
         p_bbox_xy = preds[..., [0, 1]]
         p_bbox_wh = preds[..., [2, 3]]
-        p_obj = preds[..., 4]
+        p_obj = torch.sigmoid(preds[..., 4])
         p_class = preds[..., 5:]
 
         t_bbox_xy = targets[..., [0, 1]]
