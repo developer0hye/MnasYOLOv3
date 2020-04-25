@@ -76,13 +76,7 @@ def train(model, device):
     if not os.path.exists(args.save_folder):
         os.mkdir(args.save_folder)
 
-    use_focal = False
-    if args.use_focal == 1:
-        print("Let's use focal loss for objectness !!!")
-        use_focal = True
-
     dataset = VOCDetection(root=args.dataset_root, transform=SSDAugmentation(cfg['min_dim']))
-
     data_loader = data.DataLoader(dataset, args.batch_size,
                                   num_workers=args.num_workers,
                                   shuffle=True, collate_fn=detection_collate,

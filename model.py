@@ -73,7 +73,11 @@ class MnasYOLOv3(nn.Module):
 
         # s = 32
         self.conv_set_3 = nn.Sequential(
-            Conv2d(320, 256, 1, leakyReLU=True)
+            Conv2d(320, 256, 1, leakyReLU=True),
+            Conv2d(256, 512, 3, padding=1, leakyReLU=True),
+            Conv2d(512, 256, 1, leakyReLU=True),
+            Conv2d(256, 512, 3, padding=1, leakyReLU=True),
+            Conv2d(512, 256, 1, leakyReLU=True)
         )
 
         self.conv_1x1_3 = Conv2d(256, 256, 1, leakyReLU=True)
@@ -82,7 +86,11 @@ class MnasYOLOv3(nn.Module):
 
         # s = 16
         self.conv_set_2 = nn.Sequential(
-            Conv2d(352, 128, 1, leakyReLU=True)
+            Conv2d(352, 128, 1, leakyReLU=True),
+            Conv2d(128, 256, 3, padding=1, leakyReLU=True),
+            Conv2d(256, 128, 1, leakyReLU=True),
+            Conv2d(128, 256, 3, padding=1, leakyReLU=True),
+            Conv2d(256, 128, 1, leakyReLU=True)
         )
         self.conv_1x1_2 = Conv2d(128, 128, 1, leakyReLU=True)
         self.extra_conv_2 = Conv2d(128, 256, 3, padding=1, leakyReLU=True)
@@ -90,8 +98,13 @@ class MnasYOLOv3(nn.Module):
 
         # s = 8
         self.conv_set_1 = nn.Sequential(
-            Conv2d(168, 64, 1, leakyReLU=True)
+            Conv2d(168, 64, 1, leakyReLU=True),
+            Conv2d(64, 128, 3, padding=1, leakyReLU=True),
+            Conv2d(128, 64, 1, leakyReLU=True),
+            Conv2d(64, 128, 3, padding=1, leakyReLU=True),
+            Conv2d(128, 64, 1, leakyReLU=True)
         )
+
         self.extra_conv_1 = Conv2d(64, 128, 3, padding=1, leakyReLU=True)
         self.pred_1 = nn.Conv2d(128, self.yolo_layers[2].num_anchors * (4 + 1 + self.num_classes), 1)
 
@@ -158,7 +171,11 @@ class MnasYOLOv3(nn.Module):
                 pred_all_c_conf, pred_all_c_idx = torch.max(pred_all_xywhoc_bboxes[..., 5:], dim=2)
                 pred_all_oc_conf = pred_all_o * pred_all_c_conf
 
-                oc_conf_thresh = 0.5
+                pred_all_xyxy_bboxes = pred_all_xyxy_bboxes.to('cpu')#.numpy()
+                pred_all_oc_conf = pred_all_oc_conf.to('cpu')#.numpy()
+                pred_all_c_idx = pred_all_c_idx.to('cpu')#.numpy()
+
+                oc_conf_thresh = 0.001
                 keep_bboxes = pred_all_oc_conf > oc_conf_thresh
 
                 pred_all_xyxy_bboxes = pred_all_xyxy_bboxes[keep_bboxes]
@@ -183,13 +200,9 @@ class MnasYOLOv3(nn.Module):
                     nms_pred_all_oc_conf.append(pred_c_all_oc_conf[keep_bboxes])
                     nms_pred_all_c_idx.append(pred_c_all_c_idx[keep_bboxes])
 
-                nms_pred_all_xyxy_bboxes = torch.cat(nms_pred_all_xyxy_bboxes, 0)
-                nms_pred_all_oc_conf = torch.cat(nms_pred_all_oc_conf, 0)
-                nms_pred_all_c_idx = torch.cat(nms_pred_all_c_idx, 0)
-
-                nms_pred_all_xyxy_bboxes = nms_pred_all_xyxy_bboxes.to('cpu').numpy()
-                nms_pred_all_oc_conf = nms_pred_all_oc_conf.to('cpu').numpy()
-                nms_pred_all_c_idx = nms_pred_all_c_idx.to('cpu').numpy()
+                nms_pred_all_xyxy_bboxes = torch.cat(nms_pred_all_xyxy_bboxes, 0).numpy()
+                nms_pred_all_oc_conf = torch.cat(nms_pred_all_oc_conf, 0).numpy()
+                nms_pred_all_c_idx = torch.cat(nms_pred_all_c_idx, 0).numpy()
 
                 return pred_all_yolo_layer_inputs,\
                        nms_pred_all_xyxy_bboxes,\
