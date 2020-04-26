@@ -104,7 +104,6 @@ class MnasYOLOv3(nn.Module):
             Conv2d(64, 128, 3, padding=1, leakyReLU=True),
             Conv2d(128, 64, 1, leakyReLU=True)
         )
-
         self.extra_conv_1 = Conv2d(64, 128, 3, padding=1, leakyReLU=True)
         self.pred_1 = nn.Conv2d(128, self.yolo_layers[2].num_anchors * (4 + 1 + self.num_classes), 1)
 
@@ -171,9 +170,9 @@ class MnasYOLOv3(nn.Module):
                 pred_all_c_conf, pred_all_c_idx = torch.max(pred_all_xywhoc_bboxes[..., 5:], dim=2)
                 pred_all_oc_conf = pred_all_o * pred_all_c_conf
 
-                pred_all_xyxy_bboxes = pred_all_xyxy_bboxes.to('cpu')#.numpy()
-                pred_all_oc_conf = pred_all_oc_conf.to('cpu')#.numpy()
-                pred_all_c_idx = pred_all_c_idx.to('cpu')#.numpy()
+                pred_all_xyxy_bboxes = pred_all_xyxy_bboxes.to('cpu')
+                pred_all_oc_conf = pred_all_oc_conf.to('cpu')
+                pred_all_c_idx = pred_all_c_idx.to('cpu')
 
                 oc_conf_thresh = 0.001
                 keep_bboxes = pred_all_oc_conf > oc_conf_thresh
@@ -246,8 +245,6 @@ class MnasYOLOv3(nn.Module):
 
         loss = loss_xy + loss_wh + loss_obj_pos + loss_obj_neg + loss_class
         return loss
-
-
 
 
 if __name__ == '__main__':

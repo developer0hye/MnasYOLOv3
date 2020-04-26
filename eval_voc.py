@@ -366,8 +366,11 @@ def test_net(save_folder, net, cuda, dataset, transform, top_k, thresh=0.05):
         x = Variable(im.unsqueeze(0)).to(device)
         if args.cuda:
             x = x.to(device)
+        torch.cuda.synchronize()
         _t['im_detect'].tic()
         detections = net(x)
+
+        torch.cuda.synchronize()
         detect_time = _t['im_detect'].toc(average=False)
         _, bboxes, scores, cls_inds = detections
         scale = np.array([[w, h, w, h]])
