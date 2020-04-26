@@ -34,9 +34,9 @@ GPU: GTX 1080Ti 11GB
 
 RAM: DDR4 16GB
 
-| Model name | InputSize | TrainSet | TestSet | mAP | Speed |
-| ----- | ------ | ------ | ------ | ----- | ----- |
-| MnasYOLOv3-Mobilenet | 416x416 | VOC07+12 | VOC07 | 76.15% | 25fps |
+| Model name | InputSize | TrainSet | TestSet | mAP | Speed on GPU| Speed on CPU |
+| ----- | ------ | ------ | ------ | ----- | ----- | ----- |
+| MnasYOLOv3-Mobilenet | 416x416 | VOC07+12 | VOC07 | 76.15% | 25fps | 2fps|
 
 
 ### To do lists
