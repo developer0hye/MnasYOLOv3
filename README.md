@@ -29,7 +29,9 @@ You can download it from [GoogleDrive](https://drive.google.com/open?id=10FFEoag
 ## Results
 
 CPU: I7-6700
+
 GPU: GTX 1080Ti 11GB
+
 RAM: DDR4 16GB
 
 | Model name | InputSize | TrainSet | TestSet | mAP | Speed |
