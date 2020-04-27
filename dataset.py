@@ -4,7 +4,7 @@ import torch
 from pathlib import Path
 from torch.utils.data import Dataset
 import torch.nn
-from augmentation import *
+#from augmentation import *
 import torchvision.transforms as transforms
 
 def read_annotation_file(path):
