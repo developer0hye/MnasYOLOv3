@@ -1,10 +1,12 @@
 import os
 import cv2
-import torch
+import numpy as np
+
 from pathlib import Path
+
+import torch
 from torch.utils.data import Dataset
 import torch.nn
-#from augmentation import *
 import torchvision.transforms as transforms
 
 def read_annotation_file(path):
@@ -25,7 +27,7 @@ class YOLODataset(Dataset):
                  path,
                  img_size=(416, 416)):
 
-        files = os.listdir(path)
+        files = sorted(os.listdir(path))
 
         img_exts = [".png", ".jpg", ".bmp"]
         label_exts = [".txt"]
