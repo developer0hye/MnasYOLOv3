@@ -23,8 +23,7 @@ def read_annotation_file(path):
 class YOLODataset(Dataset):
     def __init__(self,
                  path,
-                 img_size=(416, 416),
-                 use_augmentation=True):
+                 img_size=(416, 416)):
 
         files = os.listdir(path)
 
@@ -33,7 +32,6 @@ class YOLODataset(Dataset):
 
         self.imgs = [os.path.join(path, file) for file in files if file.endswith(tuple(img_exts))]
         self.labels = [os.path.join(path, file) for file in files if file.endswith(tuple(label_exts))]
-        self.use_augmentation = use_augmentation
 
         self.normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
 
@@ -47,22 +45,31 @@ class YOLODataset(Dataset):
         img = cv2.resize(img, (self.img_size[1], self.img_size[0])).astype(np.float32)
         label = read_annotation_file(self.labels[idx])
 
-        classes, bboxes_xywh = label[: 0], label[:, 1:]
+        classes, bboxes_xywh = label[:, 0:1], label[:, 1:]
 
-        target = torch.cat([classes, bboxes_xywh], dim=-1)
-        return img, target
+        classes = torch.from_numpy(classes).type(torch.float32)
+        bboxes_xywh = torch.from_numpy(bboxes_xywh).type(torch.float32)
+
+        bboxes_label = torch.cat([classes, bboxes_xywh], dim=-1)
+
+        # to rgb
+        img = img[:, :, (2, 1, 0)]
+        img = torch.from_numpy(img).permute(2, 0, 1)
+        img = img / 255.
+        img = self.normalize(img)
+
+        return img, bboxes_label
 
     def __len__(self):
         return len(self.imgs)
 
-def yolo_collate(datas):
+def yolo_collate(batch_data):
     imgs = []
-    labels = []
-    for data in datas:
-        img, label = data
+    bboxes_label_list = []
+    for img, bboxes_label in batch_data:
         imgs.append(img)
-        labels.append(label)
-    return torch.stack(imgs, 0), labels
+        bboxes_label_list.append(bboxes_label)
+    return torch.stack(imgs, 0), bboxes_label_list
 
 # class YOLODataset(Dataset):
 #     def __init__(self, path, img_size=(416, 416), use_augmentation=True):

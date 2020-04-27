@@ -76,11 +76,18 @@ def train(model, device):
     if not os.path.exists(args.save_folder):
         os.mkdir(args.save_folder)
 
-    dataset = VOCDetection(root=args.dataset_root, transform=SSDAugmentation(cfg['min_dim']))
-    data_loader = data.DataLoader(dataset, args.batch_size,
+    import dataset
+    train_dataset = dataset.YOLODataset(path=args.dataset_root)
+    data_loader = data.DataLoader(train_dataset, args.batch_size,
                                   num_workers=args.num_workers,
-                                  shuffle=True, collate_fn=detection_collate,
+                                  shuffle=True, collate_fn=dataset.yolo_collate,
                                   pin_memory=True)
+
+    # dataset = VOCDetection(root=args.dataset_root, transform=SSDAugmentation(cfg['min_dim']))
+    # data_loader = data.DataLoader(dataset, args.batch_size,
+    #                               num_workers=args.num_workers,
+    #                               shuffle=True, collate_fn=detection_collate,
+    #                               pin_memory=True)
 
     print("----------------------------------------Object Detection--------------------------------------------")
     print("Let's train OD network !")
@@ -91,7 +98,7 @@ def train(model, device):
     optimizer = optim.SGD(net.parameters(), lr=args.lr, momentum=args.momentum,
                           weight_decay=args.weight_decay)
 
-    iter_per_epoch = int(np.ceil(len(dataset)/args.batch_size))
+    iter_per_epoch = int(np.ceil(len(train_dataset)/args.batch_size))
     total_iter = iter_per_epoch * args.total_epoch
     warmup_iter = iter_per_epoch * 6
 
@@ -103,8 +110,8 @@ def train(model, device):
     # loss counters
     print("----------------------------------------------------------")
     print('Loading the dataset...')
-    print('Training on:', dataset.name)
-    print('The dataset size:', len(dataset))
+    # print('Training on:', dataset.name)
+    print('The dataset size:', len(train_dataset))
     print('The obj weight : ', args.obj)
     print('The noobj weight : ', args.noobj)
     print("----------------------------------------------------------")
