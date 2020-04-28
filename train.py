@@ -11,9 +11,7 @@ import argparse
 from voc0712 import *
 
 
-parser = argparse.ArgumentParser(description='YOLO-v2 Detection')
-parser.add_argument('-v', '--version', default='yolo_v2',
-                    help='yolo_v2, yolo_v3, tiny_yolo_v2, tiny_yolo_v3')
+parser = argparse.ArgumentParser(description='YOLO-v3 Detection')
 parser.add_argument('-d', '--dataset', default='VOC',
                     help='VOC or COCO dataset')
 parser.add_argument('-hr', '--high_resolution', type=int, default=0,
