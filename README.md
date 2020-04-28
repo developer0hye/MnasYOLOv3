@@ -36,7 +36,7 @@ RAM: DDR4 16GB
 
 | Model name | InputSize | TrainSet | TestSet | mAP | Speed on GPU| Speed on CPU |
 | ----- | ------ | ------ | ------ | ----- | ----- | ----- |
-| MnasYOLOv3-Mobilenet | 416x416 | VOC07+12 | VOC07 | 76.15% | 25fps | 2fps|
+| MnasYOLOv3| 416x416 | VOC07+12 | VOC07 | 76.15% | 25fps | 2fps|
 
 
 ### To do lists
