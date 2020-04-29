@@ -101,6 +101,8 @@ def RandomTranslation(img, bboxes_xyxy, classes):
             else:
                 classes = classes[valid_bboxes_inds]
                 return img, clipped_bboxes_xyxy, classes
+        return img_org, bboxes_xyxy_org, classes
+
     return img, bboxes_xyxy, classes
 
     # if np.random.rand() < p:
