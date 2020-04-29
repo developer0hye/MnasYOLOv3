@@ -2,6 +2,22 @@ import cv2
 import numpy as np
 from numpy import random
 
+def xywh2xyxy(box_xywh):
+    box_xyxy = box_xywh.copy()
+    box_xyxy[..., 0] = box_xywh[..., 0] - box_xywh[..., 2] / 2.
+    box_xyxy[..., 1] = box_xywh[..., 1] - box_xywh[..., 3] / 2.
+    box_xyxy[..., 2] = box_xywh[..., 0] + box_xywh[..., 2] / 2.
+    box_xyxy[..., 3] = box_xywh[..., 1] + box_xywh[..., 3] / 2.
+    return box_xyxy
+
+
+def xyxy2xywh(box_xyxy):
+    box_xywh = box_xyxy.copy()
+    box_xywh[..., 0] = (box_xyxy[..., 0] + box_xyxy[..., 2]) / 2.
+    box_xywh[..., 1] = (box_xyxy[..., 1] + box_xyxy[..., 3]) / 2.
+    box_xywh[..., 2] = box_xyxy[..., 2] - box_xyxy[..., 0]
+    box_xywh[..., 3] = box_xyxy[..., 3] - box_xyxy[..., 1]
+    return box_xywh
 
 def PhotometricNoise(img_bgr, #type must be float
                      h_delta=18.,
@@ -23,20 +39,124 @@ def PhotometricNoise(img_bgr, #type must be float
         return img_bgr
     return img_bgr
 
+def HorFlip(img, bboxes_xywh):
+    if random.randint(2):
+        img = cv2.flip(img, 1)#1이 호리즌탈 방향 반전
+        bboxes_xywh[:, 0] = 1. - bboxes_xywh[:, 0]
+        return img, bboxes_xywh
+    return img, bboxes_xywh
+
+
+def RandomTranslation(img, bboxes_xyxy):
+    if random.randint(2):
+
+        height, width = img.shape[0:2]
+        max_iteration = 100
+
+        img_org = img.copy()
+        bboxes_xyxy_org = bboxes_xyxy.copy()
+
+        for _ in range(max_iteration):
+            img = img_org.copy()
+            bboxes_xyxy = bboxes_xyxy_org.copy()
+
+            tx = np.random.uniform(-width, width)
+            ty = np.random.uniform(-height, height)
+
+            #translation matrix
+            tm = np.float32([[1, 0, tx],
+                             [0, 1, ty]])  # [1, 0, tx], [1, 0, ty]
+
+            img = cv2.warpAffine(img, tm, (width, height), borderValue=(127, 127, 127))
+
+            tx /= width
+            ty /= height
+
+            bboxes_xyxy[:, [0, 2]] += tx
+            bboxes_xyxy[:, [1, 3]] += ty
+
+            clipped_bboxes_xyxy = np.clip(bboxes_xyxy, 0., 1.)
+
+            clipped_bboxes_w = clipped_bboxes_xyxy[:, 2] - clipped_bboxes_xyxy[:, 0]
+            clipped_bboxes_h = clipped_bboxes_xyxy[:, 3] - clipped_bboxes_xyxy[:, 1]
+
+            valid_bboxes_inds = (clipped_bboxes_w > 0.01) & (clipped_bboxes_h > 0.01)
+            if np.sum(valid_bboxes_inds) == 0:
+                continue
+
+            clipped_bboxes_xyxy = clipped_bboxes_xyxy[valid_bboxes_inds]
+            clipped_bboxes_w = clipped_bboxes_w[valid_bboxes_inds]
+            clipped_bboxes_h = clipped_bboxes_h[valid_bboxes_inds]
+
+            bboxes_xyxy = bboxes_xyxy[valid_bboxes_inds]
+
+            bboxes_w = bboxes_xyxy[:, 2] - bboxes_xyxy[:, 0]
+            bboxes_h = bboxes_xyxy[:, 3] - bboxes_xyxy[:, 1]
+
+            occlusion_proportion_w = 1. - (clipped_bboxes_w / bboxes_w)
+            occlusion_proportion_h = 1. - (clipped_bboxes_h / bboxes_h)
+
+            if np.sum(occlusion_proportion_w > 0.3) > 0 or np.sum(occlusion_proportion_h > 0.3) > 0:
+                continue
+            else:
+                return img, clipped_bboxes_xyxy
+    return img, bboxes_xyxy
+
+    # if np.random.rand() < p:
+    #     img_h, img_w = img.shape[0:2]
+    #     augmented_img = img.copy()
+    #     scaled_augmented_xyxy_label = scaled_xyxy_label.copy()
+    #
+    #     tx = np.floor(np.random.uniform(-img_w/2, img_w/2))
+    #     ty = np.floor(np.random.uniform(-img_h/2, img_h/2))
+    #
+    #     #translation matrix
+    #     tm = np.float32([[1, 0, tx],
+    #                      [0, 1, ty]])  # [1, 0, tx], [1, 0, ty]
+    #
+    #     augmented_img = cv2.warpAffine(augmented_img, tm, (img_w, img_h), borderValue=(padded_val, padded_val, padded_val))
+    #
+    #     scaled_augmented_xyxy_label[:, [1,3]] += tx
+    #     scaled_augmented_xyxy_label[:, [2,4]] += ty
+    #
+    #     cliped_scaled_augmented_xyxy_label, do_augmentation = checkApplyAugmentation(scaled_augmented_xyxy_label, img_w, img_h)
+    #
+    #     if do_augmentation:
+    #         return augmented_img, cliped_scaled_augmented_xyxy_label
+    #
+    # return img, scaled_xyxy_label
+
+
+
+def drawBBox(img, bboxes_xyxy):
+    h, w = img.shape[:2]
+
+    bboxes_xyxy[:, [0, 2]] *= w
+    bboxes_xyxy[:, [1, 3]] *= h
+
+    for bbox_xyxy in bboxes_xyxy:
+        cv2.rectangle(img, (bbox_xyxy[0], bbox_xyxy[1]), (bbox_xyxy[2], bbox_xyxy[3]), (0, 255, 0),2)
+
 if __name__ == '__main__':
 
     while(True):
-        img = cv2.imread("000012.jpg", cv2.IMREAD_COLOR)
+        img = cv2.imread("000021.jpg", cv2.IMREAD_COLOR)
         img = cv2.resize(img, (416, 416)).astype(np.float32)
 
         import dataset
-        label = dataset.read_annotation_file("000012.txt")
+        label = dataset.read_annotation_file("000021.txt")
+        classes, bboxes_xywh = label[:, 0:1], label[:, 1:]
 
         img = PhotometricNoise(img)
+        img, bboxes_xywh = HorFlip(img, bboxes_xywh)
+
+        bboxes_xyxy = xywh2xyxy(bboxes_xywh)
+        img ,bboxes_xyxy = RandomTranslation(img, bboxes_xyxy)
 
 
 
 
+        drawBBox(img, bboxes_xyxy)
         img /= 255.
         cv2.imshow("img", img)
         ch = cv2.waitKey(0)

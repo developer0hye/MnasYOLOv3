@@ -12,6 +12,7 @@ import torchvision.transforms as transforms
 import tools
 from augmentation import *
 
+
 def read_annotation_file(path):
     with open(path, 'r') as label:
         objects_information = []
@@ -25,12 +26,12 @@ def read_annotation_file(path):
         objects_information = np.asarray(objects_information).astype(np.float32)
         return objects_information
 
+
 class YOLODataset(Dataset):
     def __init__(self,
                  path,
                  img_size=(416, 416),
                  use_augmentation=True):
-
         files = sorted(os.listdir(path))
 
         img_exts = [".png", ".jpg", ".bmp"]
@@ -51,12 +52,17 @@ class YOLODataset(Dataset):
 
         img = cv2.imread(self.imgs[idx], cv2.IMREAD_COLOR)
         img = cv2.resize(img, (self.img_size[0], self.img_size[1])).astype(np.float32)
-        label = read_annotation_file(self.labels[idx])
 
+        label = read_annotation_file(self.labels[idx])
         classes, bboxes_xywh = label[:, 0:1], label[:, 1:]
 
         if self.use_augmentation:
             img = PhotometricNoise(img)
+            img, bboxes_xywh = HorFlip(img, bboxes_xywh)
+
+            bboxes_xyxy = xywh2xyxy(bboxes_xywh)
+            img, bboxes_xyxy = RandomTranslation(img, bboxes_xyxy)
+            bboxes_xywh = xyxy2xywh(bboxes_xyxy)
 
         classes = torch.from_numpy(classes)
         bboxes_xywh = torch.from_numpy(bboxes_xywh)
@@ -73,6 +79,7 @@ class YOLODataset(Dataset):
 
     def __len__(self):
         return len(self.imgs)
+
 
 def yolo_collate(batch_data):
     imgs = []
