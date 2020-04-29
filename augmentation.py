@@ -47,7 +47,7 @@ def HorFlip(img, bboxes_xywh):
     return img, bboxes_xywh
 
 
-def RandomTranslation(img, bboxes_xyxy):
+def RandomTranslation(img, bboxes_xyxy, classes):
     if random.randint(2):
 
         height, width = img.shape[0:2]
@@ -99,8 +99,9 @@ def RandomTranslation(img, bboxes_xyxy):
             if np.sum(occlusion_proportion_w > 0.3) > 0 or np.sum(occlusion_proportion_h > 0.3) > 0:
                 continue
             else:
-                return img, clipped_bboxes_xyxy
-    return img, bboxes_xyxy
+                classes = classes[valid_bboxes_inds]
+                return img, clipped_bboxes_xyxy, classes
+    return img, bboxes_xyxy, classes
 
     # if np.random.rand() < p:
     #     img_h, img_w = img.shape[0:2]
@@ -151,7 +152,7 @@ if __name__ == '__main__':
         img, bboxes_xywh = HorFlip(img, bboxes_xywh)
 
         bboxes_xyxy = xywh2xyxy(bboxes_xywh)
-        img ,bboxes_xyxy = RandomTranslation(img, bboxes_xyxy)
+        img, bboxes_xyxy, classes = RandomTranslation(img, bboxes_xyxy, classes)
 
 
 
