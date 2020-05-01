@@ -39,6 +39,7 @@ RAM: DDR4 16GB
 | MnasYOLOv3| 416x416 | VOC07+12 | VOC07 | 56.10% | 25fps | 2fps|NONE|
 | MnasYOLOv3| 416x416 | VOC07+12 | VOC07 | 56.71% | 25fps | 2fps|+PhotometricNoise(Adding Noise to HSV Image)|
 | MnasYOLOv3| 416x416 | VOC07+12 | VOC07 | 60.34% | 25fps | 2fps|+Horizontal Flipping|
+| MnasYOLOv3| 416x416 | VOC07+12 | VOC07 | 68.51% | 25fps | 2fps|+Random Translation|
 | MnasYOLOv3| 416x416 | VOC07+12 | VOC07 | 76.15% | 25fps | 2fps|ALL|
 
 
