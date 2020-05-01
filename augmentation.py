@@ -51,7 +51,7 @@ def RandomTranslation(img, bboxes_xyxy, classes):
     if random.randint(2):
 
         height, width = img.shape[0:2]
-        max_iteration = 100
+        max_iteration = 50
 
         img_org = img.copy()
         bboxes_xyxy_org = bboxes_xyxy.copy()
@@ -105,30 +105,65 @@ def RandomTranslation(img, bboxes_xyxy, classes):
 
     return img, bboxes_xyxy, classes
 
-    # if np.random.rand() < p:
-    #     img_h, img_w = img.shape[0:2]
-    #     augmented_img = img.copy()
-    #     scaled_augmented_xyxy_label = scaled_xyxy_label.copy()
-    #
-    #     tx = np.floor(np.random.uniform(-img_w/2, img_w/2))
-    #     ty = np.floor(np.random.uniform(-img_h/2, img_h/2))
-    #
-    #     #translation matrix
-    #     tm = np.float32([[1, 0, tx],
-    #                      [0, 1, ty]])  # [1, 0, tx], [1, 0, ty]
-    #
-    #     augmented_img = cv2.warpAffine(augmented_img, tm, (img_w, img_h), borderValue=(padded_val, padded_val, padded_val))
-    #
-    #     scaled_augmented_xyxy_label[:, [1,3]] += tx
-    #     scaled_augmented_xyxy_label[:, [2,4]] += ty
-    #
-    #     cliped_scaled_augmented_xyxy_label, do_augmentation = checkApplyAugmentation(scaled_augmented_xyxy_label, img_w, img_h)
-    #
-    #     if do_augmentation:
-    #         return augmented_img, cliped_scaled_augmented_xyxy_label
-    #
-    # return img, scaled_xyxy_label
+def RandomScale(img, bboxes_xyxy, classes, scale=[-0.25, 0.25]):
+    if random.randint(2):
 
+        height, width = img.shape[0:2]
+        max_iteration = 50
+
+        img_org = img.copy()
+        bboxes_xyxy_org = bboxes_xyxy.copy()
+
+        n_bboxes = len(bboxes_xyxy_org)
+
+        for _ in range(max_iteration):
+            img = img_org.copy()
+            bboxes_xyxy = bboxes_xyxy_org.copy()
+            random_scale = np.random.uniform(1. + scale[0], 1. + scale[1])
+
+            sm = cv2.getRotationMatrix2D(angle=0., center=(width / 2, height / 2), scale=random_scale)
+            img = cv2.warpAffine(img, sm, (width, height), borderValue=(127, 127, 127))
+
+            sm[0, 2] /= width
+            sm[1, 2] /= height
+
+            h_bboxes_xy_tl = np.concatenate([bboxes_xyxy[:, [0, 1]], np.ones((n_bboxes, 1))], axis=-1)
+            h_bboxes_xy_br = np.concatenate([bboxes_xyxy[:, [2, 3]], np.ones((n_bboxes, 1))], axis=-1)
+
+            h_bboxes_xy_tl = sm @ h_bboxes_xy_tl.T
+            h_bboxes_xy_br = sm @ h_bboxes_xy_br.T
+
+            bboxes_xyxy[:, [0, 1]] = h_bboxes_xy_tl.T
+            bboxes_xyxy[:, [2, 3]] = h_bboxes_xy_br.T
+
+            clipped_bboxes_xyxy = np.clip(bboxes_xyxy, 0., 1.)
+
+            clipped_bboxes_w = clipped_bboxes_xyxy[:, 2] - clipped_bboxes_xyxy[:, 0]
+            clipped_bboxes_h = clipped_bboxes_xyxy[:, 3] - clipped_bboxes_xyxy[:, 1]
+
+            valid_bboxes_inds = (clipped_bboxes_w > 0.01) & (clipped_bboxes_h > 0.01)
+            if np.sum(valid_bboxes_inds) == 0:
+                continue
+
+            clipped_bboxes_xyxy = clipped_bboxes_xyxy[valid_bboxes_inds]
+            clipped_bboxes_w = clipped_bboxes_w[valid_bboxes_inds]
+            clipped_bboxes_h = clipped_bboxes_h[valid_bboxes_inds]
+
+            bboxes_xyxy = bboxes_xyxy[valid_bboxes_inds]
+
+            bboxes_w = bboxes_xyxy[:, 2] - bboxes_xyxy[:, 0]
+            bboxes_h = bboxes_xyxy[:, 3] - bboxes_xyxy[:, 1]
+
+            occlusion_proportion_w = 1. - (clipped_bboxes_w / bboxes_w)
+            occlusion_proportion_h = 1. - (clipped_bboxes_h / bboxes_h)
+
+            if np.sum(occlusion_proportion_w > 0.3) > 0 or np.sum(occlusion_proportion_h > 0.3) > 0:
+                continue
+            else:
+                classes = classes[valid_bboxes_inds]
+                return img, clipped_bboxes_xyxy, classes
+        return img_org, bboxes_xyxy_org, classes
+    return img, bboxes_xyxy, classes
 
 
 def drawBBox(img, bboxes_xyxy):
@@ -143,8 +178,8 @@ def drawBBox(img, bboxes_xyxy):
 if __name__ == '__main__':
 
     while(True):
-        img = cv2.imread("000021.jpg", cv2.IMREAD_COLOR)
-        img = cv2.resize(img, (416, 416)).astype(np.float32)
+        img = cv2.imread("000021.jpg", cv2.IMREAD_COLOR).astype(np.float32)
+        # img = cv2.resize(img, (416, 416)).astype(np.float32)
 
         import dataset
         label = dataset.read_annotation_file("000021.txt")
@@ -155,9 +190,10 @@ if __name__ == '__main__':
 
         bboxes_xyxy = xywh2xyxy(bboxes_xywh)
         img, bboxes_xyxy, classes = RandomTranslation(img, bboxes_xyxy, classes)
+        img, bboxes_xyxy, classes = RandomScale(img, bboxes_xyxy, classes)
 
-
-
+        if len(bboxes_xyxy) != len(classes):
+            print("bbox랑 class 수랑 일치하지 않다. augmentation 과정에서 실수가 있는 게 분명해")
 
         drawBBox(img, bboxes_xyxy)
         img /= 255.
@@ -166,8 +202,6 @@ if __name__ == '__main__':
 
         if ch == 27:
             break
-
-
 
     #
     #     img_hsv[...,]

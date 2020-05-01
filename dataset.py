@@ -62,6 +62,7 @@ class YOLODataset(Dataset):
 
             bboxes_xyxy = xywh2xyxy(bboxes_xywh)
             img, bboxes_xyxy, classes = RandomTranslation(img, bboxes_xyxy, classes)
+            img, bboxes_xyxy, classes = RandomScale(img, bboxes_xyxy, classes)
             bboxes_xywh = xyxy2xywh(bboxes_xyxy)
 
         classes = torch.from_numpy(classes)
