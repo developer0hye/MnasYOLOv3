@@ -50,10 +50,11 @@ class YOLODataset(Dataset):
     def __getitem__(self, idx):
         assert Path(self.imgs[idx]).stem == Path(self.labels[idx]).stem, "영상과 어노테이션 파일의 짝이 맞지 않습니다."
 
-        img = cv2.imread(self.imgs[idx], cv2.IMREAD_COLOR)
-        img = cv2.resize(img, (self.img_size[0], self.img_size[1])).astype(np.float32)
+        img = cv2.imread(self.imgs[idx], cv2.IMREAD_COLOR).astype(np.float32)
 
         label = read_annotation_file(self.labels[idx])
+        np.random.shuffle(label)
+
         classes, bboxes_xywh = label[:, 0:1], label[:, 1:]
 
         if self.use_augmentation:
@@ -63,8 +64,11 @@ class YOLODataset(Dataset):
             bboxes_xyxy = xywh2xyxy(bboxes_xywh)
             img, bboxes_xyxy, classes = RandomTranslation(img, bboxes_xyxy, classes)
             img, bboxes_xyxy, classes = RandomScale(img, bboxes_xyxy, classes)
+            img, bboxes_xyxy, classes = RandomCrop(img, bboxes_xyxy, classes)
+
             bboxes_xywh = xyxy2xywh(bboxes_xyxy)
 
+        img = cv2.resize(img, (self.img_size[0], self.img_size[1])).astype(np.float32)
         classes = torch.from_numpy(classes)
         bboxes_xywh = torch.from_numpy(bboxes_xywh)
 
