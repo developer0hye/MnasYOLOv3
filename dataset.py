@@ -40,9 +40,6 @@ class YOLODataset(Dataset):
         self.imgs = [os.path.join(path, file) for file in files if file.endswith(tuple(img_exts))]
         self.labels = [os.path.join(path, file) for file in files if file.endswith(tuple(label_exts))]
 
-        self.normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-
-        self.img_size = img_size
         assert len(self.imgs) == len(self.labels), "영상의 갯수와 라벨 파일의 갯수가 서로 맞지 않습니다."
 
         self.use_augmentation = use_augmentation
@@ -68,17 +65,10 @@ class YOLODataset(Dataset):
 
             bboxes_xywh = xyxy2xywh(bboxes_xyxy)
 
-        img = cv2.resize(img, (self.img_size[0], self.img_size[1])).astype(np.float32)
         classes = torch.from_numpy(classes)
         bboxes_xywh = torch.from_numpy(bboxes_xywh)
 
         bboxes_label = torch.cat([classes, bboxes_xywh], dim=-1)
-
-        # to rgb
-        img = img[:, :, (2, 1, 0)]
-        img = torch.from_numpy(img).permute(2, 0, 1)
-        img = img / 255.
-        img = self.normalize(img)
 
         return img, bboxes_label
 
@@ -92,4 +82,4 @@ def yolo_collate(batch_data):
     for img, bboxes_label in batch_data:
         imgs.append(img)
         bboxes_label_list.append(bboxes_label)
-    return torch.stack(imgs, 0), bboxes_label_list
+    return imgs, bboxes_label_list

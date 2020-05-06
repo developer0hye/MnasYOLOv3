@@ -129,18 +129,37 @@ def train(model, device):
         model.load_state_dict(chkpt['model'], strict=False)
         optimizer.load_state_dict(chkpt['optimizer'])
 
+    normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+
     # start training
+    input_size = (416, 416)
+
     for epoch in range(start_epoch, args.total_epoch):
         for images, bboxes_label_list in data_loader:
             iteration += 1
             scheduler.step(iteration)
 
-            images = images.to(device)
-            input_size = images.shape[2:]
+            if iteration % 10 == 0:
+                input_size = random.sample(cfg['multi_scale'], 1)[0]
+
+                print("multi-scale ", input_size)
+
+            images_tensor = []
+            for image in images:
+                # to rgb
+                image = cv2.resize(image, (input_size[0], input_size[1])).astype(np.float32)
+                image = image[:, :, (2, 1, 0)]
+                image = torch.from_numpy(image).permute(2, 0, 1)
+                image = image / 255.
+                image = normalize(image)
+                images_tensor.append(image)
+
+            images_tensor = torch.stack(images_tensor, dim=0)
+            images_tensor = images_tensor.to(device)
 
             # forward
             t0 = time.time()
-            out, _ = net(images)
+            out, _ = net(images_tensor)
 
             targets = tools.build_targets(model,
                                           bboxes_label_list,
