@@ -142,8 +142,6 @@ def train(model, device):
             if iteration % 10 == 0:
                 input_size = random.sample(cfg['multi_scale'], 1)[0]
 
-                print("multi-scale ", input_size)
-
             images_tensor = []
             for image in images:
                 # to rgb
